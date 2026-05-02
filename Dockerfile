@@ -12,10 +12,10 @@ WORKDIR /app
 
 # Copy application code
 COPY . .
+RUN apt-get update
 RUN apt install -y curl ca-certificates
 RUN install -d /usr/share/postgresql-common/pgdg
 RUN curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc
-RUN apt-get update
 RUN pip install --no-cache-dir -r requirements.txt
 RUN python ./seed_data.py
 
