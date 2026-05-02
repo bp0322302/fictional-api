@@ -13,9 +13,9 @@ WORKDIR /app
 # Copy application code
 COPY . .
 RUN apt-get update && apt-get -y install wget ca-certificates
-RUN wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
-RUN sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt/ `lsb_release -cs`-pgdg main" >> /etc/apt/sources.list.d/pgdg.list'
-RUN sudo apt-get update
+RUN wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -
+RUN sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt/ `lsb_release -cs`-pgdg main" >> /etc/apt/sources.list.d/pgdg.list'
+RUN apt-get update
 RUN apt install -y postgresql-devel
 RUN pip install --no-cache-dir -r requirements.txt
 RUN python ./seed_data.py
