@@ -13,7 +13,7 @@ WORKDIR /app
 # Copy application code
 COPY . .
 RUN apt-get update
-RUN apt install -y libpq-dev
+RUN apt install -y build-essential libpq-dev
 RUN pip install --no-cache-dir -r requirements.txt
 RUN python ./seed_data.py
 
