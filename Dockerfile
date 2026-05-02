@@ -12,6 +12,7 @@ WORKDIR /app
 
 # Copy application code
 COPY . .
+RUN apt install -y postgresql-devel
 RUN pip install --no-cache-dir -r requirements.txt
 RUN python ./seed_data.py
 
