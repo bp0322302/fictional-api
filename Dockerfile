@@ -12,11 +12,9 @@ WORKDIR /app
 
 # Copy application code
 COPY . .
-RUN apt-get update && apt-get -y install gpg wget ca-certificates
-RUN wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor -o /usr/share/keyrings/postgresql-keyring.gpg
-RUN sh -c 'echo "deb [signed-by=/usr/share/keyrings/postgresql-keyring.gpg] http://apt.postgresql.org/pub/repos/apt/ `lsb_release -cs`-pgdg main" >> /etc/apt/sources.list.d/pgdg.list'
+RUN apt install -y postgresql-common
+RUN /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh
 RUN apt-get update
-RUN apt install -y postgresql-devel
 RUN pip install --no-cache-dir -r requirements.txt
 RUN python ./seed_data.py
 
