@@ -1,0 +1,20 @@
+name: Python Static Analysis Testing - Run on Pull Requests
+on:
+  workflow_dispatch:
+  push:
+    branches-ignore:
+      - main
+      - staging
+    paths:
+        - 'src/**'
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+  security-events: write
+env:
+  BASE_PATH: './src'
+  FAIL_UNDER: 3
+jobs:
+  static_analysis:
+    uses: ./.github/workflows/statictesting.yml

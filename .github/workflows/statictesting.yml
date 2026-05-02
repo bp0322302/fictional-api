@@ -1,0 +1,138 @@
+name: Python Static Analysis Testing
+on:
+  workflow_call:
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+  security-events: write
+env:
+  BASE_PATH: './src'
+  FAIL_UNDER: 3
+jobs:
+  python_sast:
+    name: Static Analysis Security Testing for Python Code
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+            python-version: '3.13'
+
+      - name: Install packages
+        run: |
+          python -m pip install --upgrade pip
+          pip install pylint pytest
+
+      - name: Check Code Compiles
+        run: |
+          for py_file in $(find ${BASE_PATH} -name '*.py'   ! -path '.venv/*' ! -path '*site-packages*' ! -path '*tests*'); do
+            python -m py_compile  ${py_file}
+          done
+        shell: bash
+
+      - name: Run Pylint Static Analysis with Details
+        continue-on-error: true
+        run: |
+          echo "## 📊 Pylint Static Analysis Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Summary table
+          echo "| File | Score | Issues | Status |" > pylint-summary.md
+          echo "|------|-------|--------|--------|" >> pylint-summary.md
+
+          # Detailed issues
+          echo "" > pylint-details.md
+
+          overall_pass=true
+          total_score=0
+          file_count=0
+          total_issues=0
+
+          for py_file in $(find ${BASE_PATH} -name '*.py' ! -path '*site-packages*' ! -path '*.venv*' ! -path '*tests*'); do
+            if [[ ${py_file} =~ ".py" ]]; then
+              # Run pylint with parseable output
+              pylint_output=$(pylint --output-format=parseable ${py_file} 2>&1 || true)
+              score_output=$(pylint --score=y ${py_file} 2>&1 || true)
+
+              # Extract score
+              score=$(echo "$score_output" | grep -oP "rated at \K[0-9]+\.[0-9]+" | head -1)
+              if [ -z "$score" ]; then
+                score="0.00"
+              fi
+
+              # Count issues
+              issue_count=$(echo "$pylint_output" | grep -c ":" || echo "0")
+              total_issues=$((total_issues + issue_count))
+
+              # Check if passed
+              if (( $(echo "$score >= ${FAIL_UNDER}" | bc -l) )); then
+                status="✅"
+              else
+                status="❌"
+                overall_pass=false
+              fi
+
+              # Add to summary
+              echo "| \`${py_file}\` | ${score}/10 | ${issue_count} | ${status} |" >> pylint-summary.md
+
+              # Add details if there are issues
+              if [ $issue_count -gt 0 ]; then
+                echo "" >> pylint-details.md
+                echo "<details>" >> pylint-details.md
+                echo "<summary>🔍 Issues in <code>${py_file}</code> (${issue_count} issues)</summary>" >> pylint-details.md
+                echo "" >> pylint-details.md
+                echo '```' >> pylint-details.md
+                echo "$pylint_output" | head -20  >> pylint-details.md  # Limit to first 20 lines
+                if [ $issue_count -gt 20 ]; then
+                  echo "... (${issue_count} total issues, showing first 20)" >> pylint-details.md
+                fi
+                echo '```' >> pylint-details.md
+                echo "</details>" >> pylint-details.md
+              fi
+
+              total_score=$(echo "$total_score + $score" | bc)
+              file_count=$((file_count + 1))
+            fi
+          done
+
+          # Calculate average
+          if [ $file_count -gt 0 ]; then
+            avg_score=$(echo "scale=2; $total_score / $file_count" | bc)
+          else
+            avg_score="0.00"
+          fi
+
+          # Output summary table
+          cat pylint-summary.md >> $GITHUB_STEP_SUMMARY
+
+          # Add overall summary
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Files analyzed:** $file_count" >> $GITHUB_STEP_SUMMARY
+          echo "- **Average score:** ${avg_score}/10" >> $GITHUB_STEP_SUMMARY
+          echo "- **Total issues:** $total_issues" >> $GITHUB_STEP_SUMMARY
+          echo "- **Minimum required:** ${FAIL_UNDER}/10" >> $GITHUB_STEP_SUMMARY
+
+          if [ "$overall_pass" = true ]; then
+            echo "- **Status:** ✅ All files passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Status:** ❌ Some files below threshold" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Add detailed issues (collapsed)
+          if [ -f pylint-details.md ] && [ -s pylint-details.md ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Detailed Issues" >> $GITHUB_STEP_SUMMARY
+            cat pylint-details.md >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Exit with error if failed
+          if [ "$overall_pass" = false ]; then
+            exit 1
+          fi
+        shell: bash
